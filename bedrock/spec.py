@@ -1285,7 +1285,10 @@ class ProcSpec:
         validator=instance_of(MargoSpec),
         converter=_margo_from_args)
     _abt_io: List[AbtIOSpec] = attr.ib(
-        init=False, factory=list,
+        factory=list,
+        validator=instance_of(list))
+    _ssg: List[SSGSpec] = attr.ib(
+        factory=list,
         validator=instance_of(list))
 
     @property
@@ -1295,11 +1298,19 @@ class ProcSpec:
         """
         return SpecListDecorator(list=self._abt_io, type=AbtIOSpec)
 
+    @property
+    def ssg(self) -> SpecListDecorator:
+        """Return a decorator to access the internal list of SSGSpec
+        and validate changes to this list.
+        """
+        return SpecListDecorator(list=self._ssg, type=SSGSpec)
+
     def to_dict(self) -> dict:
         """Convert the ProcSpec into a dictionary.
         """
         data = {'margo': self.margo.to_dict(),
-                'abt_io': [a.to_dict() for a in self._abt_io]}
+                'abt_io': [a.to_dict() for a in self._abt_io],
+                'ssg': [g.to_dict() for g in self._ssg]}
         return data
 
     @staticmethod
@@ -1308,10 +1319,14 @@ class ProcSpec:
         """
         margo = MargoSpec.from_dict(data['margo'])
         abt_io = []
+        ssg = []
         if 'abt_io' in data:
             for a in data['abt_io']:
                 abt_io.append(AbtIOSpec.from_dict(a, margo.argobots))
-        return ProcSpec(margo=margo, abt_io=abt_io)
+        if 'ssg' in data:
+            for g in data['ssg']:
+                ssg.append(SSGSpec.from_dict(g, margo.argobots))
+        return ProcSpec(margo=margo, abt_io=abt_io, ssg=ssg)
 
     def to_json(self, *args, **kwargs) -> str:
         """Convert the ProcSpec into a JSON string.
@@ -1333,6 +1348,11 @@ class ProcSpec:
             if p not in self.margo.argobots.pools:
                 raise ValueError(f'Pool "{p.name}" used by ABT-IO instance' +
                                  ' not found in margo.argobots.pools')
+        for g in self._ssg:
+            p = g.pool
+            if p not in self.margo.argobots.pools:
+                raise ValueError(f'Pool "{p.name}" used by SSG group' +
+                                 ' not found in margo.argobots.pool')
 
 
 attr.resolve_types(MercurySpec, globals(), locals())
@@ -1342,4 +1362,6 @@ attr.resolve_types(XstreamSpec, globals(), locals())
 attr.resolve_types(ArgobotsSpec, globals(), locals())
 attr.resolve_types(MargoSpec, globals(), locals())
 attr.resolve_types(AbtIOSpec, globals(), locals())
+attr.resolve_types(SwimSpec, globals(), locals())
+attr.resolve_types(SSGSpec, globals(), locals())
 attr.resolve_types(ProcSpec, globals(), locals())
