@@ -1289,7 +1289,7 @@ class ProcSpec:
     _ssg: List[SSGSpec] = attr.ib(
         factory=list,
         validator=instance_of(list))
-    libraries: dict[str, str] = attr.ib(
+    libraries: dict = attr.ib(
         factory=dict,
         validator=instance_of(dict))
 
