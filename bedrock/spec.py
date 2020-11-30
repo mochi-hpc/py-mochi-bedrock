@@ -299,6 +299,13 @@ class SpecListDecorator:
         """
         return iter(self._list)
 
+    def add(self, *kargs, **kwargs):
+        """Create a new object using the provided arguments and add
+        it to the list, then return it."""
+        obj = self._type(*kargs, **kwargs)
+        self.append(obj)
+        return obj
+
 
 @attr.s(auto_attribs=True, on_setattr=_check_validators, kw_only=True)
 class MercurySpec:
@@ -788,26 +795,6 @@ class ArgobotsSpec:
         """
         return SpecListDecorator(list=self._pools, type=PoolSpec)
 
-    def new_pool(self, *args, **kwargs) -> PoolSpec:
-        """Create a new PoolSpec, add it to the ArgobotsSpec, and return it.
-
-        :return: A new PoolSpec
-        :rtype: PoolSpec
-        """
-        p = PoolSpec(*args, **kwargs)
-        self.pools.append(p)
-        return p
-
-    def new_xtream(self, *args, **kwargs) -> XstreamSpec:
-        """Create a new XstreamSpec, add it to the ArgobotsSpec, and return it.
-
-        :return: A new XstreamSpec
-        :rtype: XstreamSpec
-        """
-        es = XstreamSpec(*args, **kwargs)
-        self.xstreams.append(es)
-        return es
-
     def add(self, thing: Union[PoolSpec, XstreamSpec]) -> NoReturn:
         """Add an existing PoolSpec or XstreamSpec that was created externally.
 
@@ -943,8 +930,14 @@ class MargoSpec:
         default=32, validator=instance_of(int))
     profile_sparkline_timeslice_msec: int = attr.ib(
         default=1000, validator=instance_of(int))
-    progress_pool: PoolSpec = attr.ib(default=None)
-    rpc_pool: PoolSpec = attr.ib(default=None)
+    progress_pool: PoolSpec = attr.ib(
+        default=Factory(lambda self: self.argobots.pools[0],
+                        takes_self=True),
+        validator=instance_of(PoolSpec))
+    rpc_pool: PoolSpec = attr.ib(
+        default=Factory(lambda self: self.argobots.pools[0],
+                        takes_self=True),
+        validator=instance_of(PoolSpec))
 
     def to_dict(self) -> dict:
         """Convert a MargoSpec into a dictionary.
@@ -1279,6 +1272,12 @@ class ProcSpec:
 
     :param abt_io: List of AbtIOspec
     :type abt_io: list
+
+    :param ssg: List of SSGSpec
+    :type ssg: list
+
+    :param libraries: Dictionary of libraries
+    :type libraries: dict
     """
 
     margo: MargoSpec = attr.ib(
@@ -1290,6 +1289,9 @@ class ProcSpec:
     _ssg: List[SSGSpec] = attr.ib(
         factory=list,
         validator=instance_of(list))
+    libraries: dict[str, str] = attr.ib(
+        factory=dict,
+        validator=instance_of(dict))
 
     @property
     def abt_io(self) -> SpecListDecorator:
@@ -1353,6 +1355,13 @@ class ProcSpec:
             if p not in self.margo.argobots.pools:
                 raise ValueError(f'Pool "{p.name}" used by SSG group' +
                                  ' not found in margo.argobots.pool')
+        for k, v in self.libraries.items():
+            if not isinstance(k, str):
+                raise TypeError('Invalid key type found in libraries' +
+                                ' (expected string)')
+            if not isinstance(v, str):
+                raise TypeError('Invalid value type found in libraries' +
+                                ' (expected string')
 
 
 attr.resolve_types(MercurySpec, globals(), locals())

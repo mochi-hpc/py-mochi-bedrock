@@ -1,0 +1,10 @@
+spack:
+  specs:
+  - python
+  - py-pkgconfig
+  - py-setuptools
+  - py-attrs @20.3.0
+  - py-pybind11
+  - mochi-bedrock@0.1 ^mochi-margo@0.9
+  - py-jupyterlab-server
+  concretization: together
