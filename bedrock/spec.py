@@ -26,6 +26,12 @@ def _check_validators(instance, attribute, value):
     return value
 
 
+def _validate_object_name(instance, attribute, value):
+    import re
+    if not re.match(r'[a-zA-Z_][a-zA-Z0-9_]*$', value):
+        raise NameError(f'"name" field {value} is not a valid identifier')
+
+
 @attr.s(auto_attribs=True, on_setattr=_check_validators, kw_only=True)
 class SpecListDecorator:
     """The SpecListDecorator class is used in various places in this module
@@ -422,7 +428,7 @@ class PoolSpec:
     """
 
     name: str = attr.ib(
-        validator=instance_of(str),
+        validator=[instance_of(str), _validate_object_name],
         on_setattr=attr.setters.frozen)
     kind: str = attr.ib(
         default='fifo_wait',
@@ -430,13 +436,6 @@ class PoolSpec:
     access: str = attr.ib(
         default='mpmc',
         validator=in_(['private', 'spsc', 'mpsc', 'spmc', 'mpmc']))
-
-    @name.validator
-    def _check_name(self, attribute, value) -> NoReturn:
-        """Check the validitiy of the name. The name should not be empty.
-        """
-        if len(value) == 0:
-            raise ValueError('name cannot be empty')
 
     def to_dict(self) -> dict:
         """Convert the PoolSpec into a dictionary.
@@ -594,20 +593,13 @@ class XstreamSpec:
 
     name: str = attr.ib(
         on_setattr=attr.setters.frozen,
-        validator=instance_of(str))
+        validator=[instance_of(str), _validate_object_name])
     scheduler: SchedulerSpec = attr.ib(
         validator=instance_of(SchedulerSpec),
         factory=SchedulerSpec)
     cpubind: int = attr.ib(default=-1, validator=instance_of(int))
     affinity: List[int] = attr.ib(
         factory=list, validator=instance_of(list))
-
-    @name.validator
-    def _check_name(self, attribute, value) -> NoReturn:
-        """Check the validitiy of the name. The name should not be empty.
-        """
-        if len(value) == 0:
-            raise ValueError('name cannot be empty')
 
     def to_dict(self) -> dict:
         """Convert the XstreamSpec into a dictionary.
@@ -1024,16 +1016,9 @@ class AbtIOSpec:
     """
 
     name: str = attr.ib(
-        validator=instance_of(str),
+        validator=[instance_of(str), _validate_object_name],
         on_setattr=attr.setters.frozen)
     pool: PoolSpec = attr.ib(validator=instance_of(PoolSpec))
-
-    @name.validator
-    def _check_name(self, attribute, value) -> NoReturn:
-        """Check the validitiy of the name. The name should not be empty.
-        """
-        if len(value) == 0:
-            raise ValueError('name cannot be empty')
 
     def to_dict(self) -> dict:
         """Convert the AbtIOSpec into a dictionary.
@@ -1176,7 +1161,7 @@ class SSGSpec:
     """
 
     name: str = attr.ib(
-        validator=instance_of(str),
+        validator=[instance_of(str), _validate_object_name],
         on_setattr=attr.setters.frozen)
     pool: PoolSpec = attr.ib(
         validator=instance_of(PoolSpec))
@@ -1192,13 +1177,6 @@ class SSGSpec:
         validator=instance_of(SwimSpec),
         converter=_swim_from_args,
         factory=SwimSpec)
-
-    @name.validator
-    def _check_name(self, attribute, value) -> NoReturn:
-        """Check the validitiy of the name. The name should not be empty.
-        """
-        if len(value) == 0:
-            raise ValueError('name cannot be empty')
 
     def to_dict(self) -> dict:
         """Convert the SSGSpec into a dictionary.
@@ -1229,7 +1207,7 @@ class SSGSpec:
         return ssg
 
     def to_json(self, *args, **kwargs) -> str:
-        """Convert the AbtIOSpec into a JSON string.
+        """Convert the SSGSpec into a JSON string.
         """
         return json.dumps(self.to_dict(), *args, **kwargs)
 
@@ -1246,6 +1224,154 @@ class SSGSpec:
         :type abt_spec: ArgobotsSpec
         """
         return SSGSpec.from_dict(json.loads(json_string), abt_spec)
+
+
+@attr.s(auto_attribs=True, on_setattr=_check_validators, kw_only=True)
+class ProviderSpec:
+    """Provider specification.
+
+    :param name: Name of the provider
+    :type name: str
+
+    :param type: Type of provider
+    :type type: str
+
+    :param pool: Pool associated with the group
+    :type pool: PoolSpec
+
+    :param provider_id: Provider id
+    :type provider_id: int
+
+    :param config: Configuration
+    :type config: dict
+
+    :param dependencies: Dependencies
+    :type dependencies: dict
+    """
+
+    name: str = attr.ib(
+        validator=[instance_of(str), _validate_object_name],
+        on_setattr=attr.setters.frozen)
+    type: str = attr.ib(
+        validator=instance_of(str),
+        on_setattr=attr.setters.frozen)
+    pool: PoolSpec = attr.ib(
+        validator=instance_of(PoolSpec))
+    provider_id: int = attr.ib(
+        default=0,
+        validator=instance_of(int))
+    config: dict = attr.ib(
+        validator=instance_of(dict),
+        factory=dict)
+    dependencies: dict = attr.ib(
+        validator=instance_of(dict),
+        factory=dict)
+
+    def to_dict(self) -> dict:
+        """Convert the SSGSpec into a dictionary.
+        """
+        return {'name': self.name,
+                'type': self.type,
+                'pool': self.pool.name,
+                'provider_id': self.provider_id,
+                'dependencies': self.dependencies,
+                'config': self.config}
+
+    @staticmethod
+    def from_dict(data: dict, abt_spec: ArgobotsSpec) -> 'ProviderSpec':
+        """Construct a ProviderSpec from a dictionary. Since the dictionary
+        references the pool by name or index, an ArgobotsSpec is necessary
+        to resolve the reference.
+
+        :param data: Dictionary
+        :type data: dict
+
+        :param abt_spec: ArgobotsSpec in which to look for the PoolSpec
+        :type abt_spec: ArgobotsSpec
+        """
+        args = data.copy()
+        args['poo'] = abt_spec.find_pool(data['pool'])
+        provider = ProviderSpec(**args)
+        return provider
+
+    def to_json(self, *args, **kwargs) -> str:
+        """Convert the ProviderSpec into a JSON string.
+        """
+        return json.dumps(self.to_dict(), *args, **kwargs)
+
+    @staticmethod
+    def from_json(json_string: str,  abt_spec: ArgobotsSpec) -> 'ProviderSpec':
+        """Construct a ProviderSpec from a JSON string. Since the JSON string
+        references the pool by name or index, an ArgobotsSpec is necessary
+        to resolve the reference.
+
+        :param json_string: JSON string
+        :type json_string: str
+
+        :param abt_spec: ArgobotsSpec in which to look for the PoolSpec
+        :type abt_spec: ArgobotsSpec
+        """
+        return ProviderSpec.from_dict(json.loads(json_string), abt_spec)
+
+
+@attr.s(auto_attribs=True, on_setattr=_check_validators, kw_only=True)
+class BedrockSpec:
+    """Bedrock specification.
+
+    :param pool: Pool in which to execute Bedrock-specific RPCs
+    :type pool: PoolSpec
+
+    :param provider_id: Provider id at which to register Bedrock RPCs
+    :type provider_id: int
+    """
+
+    pool: PoolSpec = attr.ib(
+        validator=instance_of(PoolSpec))
+    provider_id: int = attr.ib(
+        validator=instance_of(int),
+        default=0)
+
+    def to_dict(self) -> dict:
+        """Convert the BedrockSpec into a dictionary.
+        """
+        return {'pool': self.pool.name,
+                'provider_id': self.provider_id}
+
+    @staticmethod
+    def from_dict(data: dict, abt_spec: ArgobotsSpec) -> 'BedrockSpec':
+        """Construct a BedrockSpec from a dictionary. Since the dictionary
+        references the pool by name or index, an ArgobotsSpec is necessary
+        to resolve the reference.
+
+        :param data: Dictionary
+        :type data: dict
+
+        :param abt_spec: ArgobotsSpec in which to look for the PoolSpec
+        :type abt_spec: ArgobotsSpec
+        """
+        args = data.copy()
+        args['pool'] = abt_spec.find_pool(data['pool'])
+        bedrock = BedrockSpec(**args)
+        return bedrock
+
+    def to_json(self, *args, **kwargs) -> str:
+        """Convert the BedrockSpec into a JSON string.
+        """
+        return json.dumps(self.to_dict(), *args, **kwargs)
+
+    @staticmethod
+    def from_json(json_string: str,  abt_spec: ArgobotsSpec) -> 'BedrockSpec':
+        """Construct an BedrockSpec from a JSON string. Since the JSON string
+        references the pool by name or index, an ArgobotsSpec is necessary
+        to resolve the reference.
+
+        :param json_string: JSON string
+        :type json_string: str
+
+        :param abt_spec: ArgobotsSpec in which to look for the PoolSpec
+        :type abt_spec: ArgobotsSpec
+        """
+        return BedrockSpec.from_dict(json.loads(json_string), abt_spec)
 
 
 def _margo_from_args(arg) -> MargoSpec:
@@ -1270,7 +1396,7 @@ class ProcSpec:
     :param margo: Margo specification
     :type margo: MargoSpec
 
-    :param abt_io: List of AbtIOspec
+    :param abt_io: List of AbtIOSpec
     :type abt_io: list
 
     :param ssg: List of SSGSpec
@@ -1278,6 +1404,9 @@ class ProcSpec:
 
     :param libraries: Dictionary of libraries
     :type libraries: dict
+
+    :param providers: List of ProviderSpec
+    :type providers: list
     """
 
     margo: MargoSpec = attr.ib(
@@ -1292,6 +1421,13 @@ class ProcSpec:
     libraries: dict = attr.ib(
         factory=dict,
         validator=instance_of(dict))
+    _providers: list = attr.ib(
+        factory=list,
+        validator=instance_of(list))
+    bedrock: BedrockSpec = attr.ib(
+        default=Factory(lambda self: BedrockSpec(pool=self.margo.rpc_pool),
+                        takes_self=True),
+        validator=instance_of(BedrockSpec))
 
     @property
     def abt_io(self) -> SpecListDecorator:
@@ -1307,12 +1443,22 @@ class ProcSpec:
         """
         return SpecListDecorator(list=self._ssg, type=SSGSpec)
 
+    @property
+    def providers(self) -> SpecListDecorator:
+        """Return a decorator to access the internal list of ProviderSpec
+        and validate changes to this list.
+        """
+        return SpecListDecorator(list=self._providers, type=ProviderSpec)
+
     def to_dict(self) -> dict:
         """Convert the ProcSpec into a dictionary.
         """
         data = {'margo': self.margo.to_dict(),
                 'abt_io': [a.to_dict() for a in self._abt_io],
-                'ssg': [g.to_dict() for g in self._ssg]}
+                'ssg': [g.to_dict() for g in self._ssg],
+                'libraries': self.libraries,
+                'providers': [p.to_dict() for p in self._providers],
+                'bedrock': self.bedrock.to_dict()}
         return data
 
     @staticmethod
@@ -1322,13 +1468,28 @@ class ProcSpec:
         margo = MargoSpec.from_dict(data['margo'])
         abt_io = []
         ssg = []
+        libraries = dict()
+        providers = []
+        bedrock = {}
+        if 'libraries' in data:
+            libraries = data['libraries']
         if 'abt_io' in data:
             for a in data['abt_io']:
                 abt_io.append(AbtIOSpec.from_dict(a, margo.argobots))
         if 'ssg' in data:
             for g in data['ssg']:
                 ssg.append(SSGSpec.from_dict(g, margo.argobots))
-        return ProcSpec(margo=margo, abt_io=abt_io, ssg=ssg)
+        if 'providers' in data:
+            for p in data['providers']:
+                providers.append(ProviderSpec.from_dict(p,  margo.argobots))
+        if 'bedrock' in data:
+            bedrock = BedrockSpec.from_dict(data['bedrock'], margo.argobots)
+        return ProcSpec(margo=margo,
+                        abt_io=abt_io,
+                        ssg=ssg,
+                        libraries=libraries,
+                        providers=providers,
+                        bedrock=bedrock)
 
     def to_json(self, *args, **kwargs) -> str:
         """Convert the ProcSpec into a JSON string.
@@ -1362,6 +1523,10 @@ class ProcSpec:
             if not isinstance(v, str):
                 raise TypeError('Invalid value type found in libraries' +
                                 ' (expected string')
+        for p in self._providers:
+            if p.type not in self._libraries:
+                raise ValueError('Could not find module library for' +
+                                 f'module type {p.name}')
 
 
 attr.resolve_types(MercurySpec, globals(), locals())
@@ -1373,4 +1538,5 @@ attr.resolve_types(MargoSpec, globals(), locals())
 attr.resolve_types(AbtIOSpec, globals(), locals())
 attr.resolve_types(SwimSpec, globals(), locals())
 attr.resolve_types(SSGSpec, globals(), locals())
+attr.resolve_types(BedrockSpec, globals(), locals())
 attr.resolve_types(ProcSpec, globals(), locals())
