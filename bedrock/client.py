@@ -31,7 +31,6 @@ class Client(_pybedrock.Client):
             raise TypeError(f'Invalid argument type {type(arg)}')
 
     def __del__(self):
-        super().__del__()
         if self._engine is not None:
             self._engine.finalize()
             del self._engine

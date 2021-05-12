@@ -37,5 +37,49 @@ PYBIND11_MODULE(_pybedrock, m) {
                 sh.getConfig(&config);
                 return std::move(config);
              })
+        .def("query_config",
+            [](const ServiceHandle& sh, const std::string& script) {
+                std::string result;
+                sh.queryConfig(script, &result);
+                return std::move(result);
+            }, "script"_a)
+        .def("add_ssg_group", [](const ServiceHandle& sh, const std::string& config) {
+                sh.addSSGgroup(config);
+            },
+            "config"_a)
+        .def("create_abtio_instance",
+            [](const ServiceHandle& sh,
+               const std::string& name,
+               const std::string& pool,
+               const std::string& config) {
+                    sh.createABTioInstance(name, pool, config);
+            }, "name"_a, "pool"_a, "config"_a = std::string("{}"))
+        .def("load_module",
+            [](const ServiceHandle& sh,
+               const std::string& name,
+               const std::string& path) {
+                    sh.loadModule(name, path);
+            }, "name"_a, "path"_a)
+        .def("start_provider",
+            [](const ServiceHandle& sh,
+               const std::string& name,
+               const std::string& type,
+               uint16_t provider_id,
+               const std::string& pool,
+               const std::string& config,
+               const DependencyMap& deps) {
+                    sh.startProvider(name, type, provider_id, pool, config, deps);
+            }, "name"_a, "type"_a, "provider_id"_a=0, "pool"_a=std::string(""),
+             "config"_a=std::string("{}"),
+             "dependencies"_a=DependencyMap())
+        .def("create_client",
+            [](const ServiceHandle& sh,
+               const std::string& name,
+               const std::string& type,
+               const std::string& config,
+               const DependencyMap& deps) {
+                    sh.createClient(name, type, config, deps);
+            }, "name"_a, "type"_a, "config"_a=std::string("{}"),
+             "dependencies"_a=DependencyMap())
     ;
 }

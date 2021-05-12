@@ -5,7 +5,7 @@ spack:
   - py-setuptools
   - py-attrs @20.3.0
   - py-pybind11
-  - mochi-bedrock@0.1 ^mochi-thallium@master ^mochi-margo@0.9
+  - mochi-bedrock
   - py-mochi-margo
   - py-jupyterlab-server
   concretization: together
