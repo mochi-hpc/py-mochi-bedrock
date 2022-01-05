@@ -1,6 +1,4 @@
 from setuptools import setup, find_packages, Extension
-import pybind11
-import pkgconfig
 import os.path
 from os import environ
 
@@ -16,6 +14,8 @@ def get_pybind11_include():
     return '/'.join(path.split('/')[0:-4] + ['include'])
 
 if build_py_bedrock_client:
+    import pybind11
+    import pkgconfig
     bedrock_client = pkgconfig.parse('bedrock-client')
     bedrock_ext = Extension('_pybedrock',
                             sources=['bedrock/src/bedrock.cpp'],
