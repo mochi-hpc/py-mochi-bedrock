@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages, Extension
+from setuptools import setup, find_namespace_packages, Extension
 import os.path
 from os import environ
 
@@ -18,7 +18,7 @@ if build_py_bedrock_client:
     import pkgconfig
     bedrock_client = pkgconfig.parse('bedrock-client')
     bedrock_ext = Extension('_pybedrock',
-                            sources=['bedrock/src/bedrock.cpp'],
+                            sources=['mochi/bedrock/src/bedrock.cpp'],
                             libraries=bedrock_client['libraries'],
                             library_dirs=bedrock_client['library_dirs'],
                             include_dirs=bedrock_client['include_dirs'] + [get_pybind11_include()],
@@ -28,7 +28,7 @@ else:
     ext_modules = []
 
 setup(
-    name="bedrock",
+    name="py-mochi-bedrock",
     version="0.0.1",
     author="Matthieu Dorier",
     author_email="mdorier@anl.gov",
@@ -36,7 +36,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://xgitlab.cels.anl.gov/sds/py-bedrock",
-    packages=find_packages(),
+    packages=find_namespace_packages(include=['mochi.*']),
     ext_modules=ext_modules,
     classifiers=[
         "Programming Language :: Python :: 3",
