@@ -1,3 +1,5 @@
+WARNING: This repository is deprecated. Bedrock's Python binding and utilities have moved to the [Bedrock repository](https://github.com/mochi-hpc/mochi-bedrock).
+
 Py-Bedrock
 ==========
 
